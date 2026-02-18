@@ -17,11 +17,19 @@ return [
     (new Extend\ApiResource(TagResource::class))
         ->fields(function () {
             $table = 'vadkuz_secondary_tag_primary_tag';
+            $tableSettings = 'vadkuz_secondary_tag_settings';
             /** @var DatabaseManager $db */
             $db = resolve('db');
 
             // Expose and accept an array of allowed primary tag IDs for a secondary tag.
             // Empty array means "global secondary tag" (no restriction).
+            $boolSchema = null;
+            if (class_exists(Schema\Bool::class)) {
+                $boolSchema = Schema\Bool::class;
+            } elseif (class_exists(Schema\Boolean::class)) {
+                $boolSchema = Schema\Boolean::class;
+            }
+
             return [
                 Schema\Arr::make('secondaryPrimaryTagIds')
                     ->get(function (Tag $tag) use ($db, $table) {
@@ -91,6 +99,45 @@ return [
                             );
                             $db->table($table)->insert($rows);
                         }
+                    }),
+
+                // Controls whether a secondary tag is listed in /tags + sidebar and whether it is linkable.
+                // Default: true.
+                ($boolSchema ? $boolSchema::make('secondaryListed') : Schema\Int::make('secondaryListed'))
+                    ->get(function (Tag $tag) use ($db, $tableSettings) {
+                        if ((bool) ($tag->is_primary ?? false)) {
+                            return true;
+                        }
+
+                        static $listedMap = null;
+                        if ($listedMap === null) {
+                            $listedMap = [];
+                            foreach ($db->table($tableSettings)->get(['secondary_tag_id', 'listed']) as $row) {
+                                $listedMap[(int) $row->secondary_tag_id] = (bool) $row->listed;
+                            }
+                        }
+
+                        // No row = default true.
+                        return $listedMap[(int) $tag->id] ?? true;
+                    })
+                    ->writable(fn (Tag $tag, \Flarum\Api\Context $context) => $context->getActor()->isAdmin())
+                    ->save(function (Tag $tag, mixed $value, Context $context) use ($db, $tableSettings) {
+                        if (! $context->getActor()->isAdmin()) {
+                            return;
+                        }
+
+                        if ((bool) ($tag->is_primary ?? false)) {
+                            $db->table($tableSettings)->where('secondary_tag_id', $tag->id)->delete();
+                            return;
+                        }
+
+                        $listed = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                        $listed = $listed === null ? true : (bool) $listed;
+
+                        $db->table($tableSettings)->updateOrInsert(
+                            ['secondary_tag_id' => (int) $tag->id],
+                            ['listed' => $listed ? 1 : 0]
+                        );
                     }),
             ];
         }),

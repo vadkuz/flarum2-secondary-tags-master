@@ -7,7 +7,10 @@
   var reg = flarum.reg;
   var ext = null;
   var TagSelectionModal = null;
+  var TagLinkButton = null;
+  var TagLabel = null;
   var booted = false;
+  var bootedLinks = false;
 
   function normalizeIdArray(value) {
     if (!Array.isArray(value)) return [];
@@ -32,6 +35,27 @@
       return normalizeIdArray(attrs && attrs.secondaryPrimaryTagIds ? attrs.secondaryPrimaryTagIds : []);
     } catch (_e) {
       return [];
+    }
+  }
+
+  function isPrimary(tag) {
+    try {
+      if (!tag) return false;
+      if (typeof tag.isPrimaryParent === 'function') return !!tag.isPrimaryParent();
+      if (typeof tag.isPrimary === 'function') return !!tag.isPrimary();
+    } catch (_e) {}
+    return false;
+  }
+
+  function isSecondaryListed(tag) {
+    try {
+      if (!tag) return true;
+      if (isPrimary(tag)) return true;
+      var attrs = tag && tag.data && tag.data.attributes ? tag.data.attributes : null;
+      var v = attrs ? attrs.secondaryListed : undefined;
+      return v === undefined || v === null ? true : !!v;
+    } catch (_e) {
+      return true;
     }
   }
 
@@ -157,17 +181,53 @@
     });
   }
 
+  function tryBootLinks() {
+    if (bootedLinks) return;
+    if (!ext || !TagLinkButton || !TagLabel) return;
+
+    bootedLinks = true;
+
+    // Hide unlisted secondary tags from tag lists (sidebar, /tags, etc.).
+    ext.override(TagLinkButton.prototype, 'view', function (original, vnode) {
+      try {
+        var tag = (vnode && vnode.attrs && vnode.attrs.tag) || (this.attrs && this.attrs.tag);
+        if (tag && !isPrimary(tag) && !isSecondaryListed(tag)) return null;
+      } catch (_e) {}
+      return original(vnode);
+    });
+
+    // Make unlisted secondary tags non-clickable everywhere they appear as labels.
+    ext.override(TagLabel.prototype, 'view', function (original, vnode) {
+      try {
+        var tag = (vnode && vnode.attrs && vnode.attrs.tag) || (this.attrs && this.attrs.tag);
+        if (tag && !isPrimary(tag) && !isSecondaryListed(tag)) {
+          // TagLabel respects attrs.link; force it off for this render.
+          if (this.attrs) {
+            var prev = this.attrs.link;
+            this.attrs.link = false;
+            var out = original(vnode);
+            this.attrs.link = prev;
+            return out;
+          }
+        }
+      } catch (_e) {}
+      return original(vnode);
+    });
+  }
+
   function loadModule(namespace, id, assign) {
     var current = unwrapModule(reg.get(namespace, id));
     if (current) {
       assign(current);
       tryBoot();
+      tryBootLinks();
       return;
     }
 
     reg.onLoad(namespace, id, function (module) {
       assign(unwrapModule(module));
       tryBoot();
+      tryBootLinks();
     });
   }
 
@@ -177,6 +237,14 @@
 
   loadModule('flarum-tags', 'common/components/TagSelectionModal', function (module) {
     TagSelectionModal = module;
+  });
+
+  loadModule('flarum-tags', 'common/components/TagLinkButton', function (module) {
+    TagLinkButton = module;
+  });
+
+  loadModule('flarum-tags', 'common/components/TagLabel', function (module) {
+    TagLabel = module;
   });
 })();
 

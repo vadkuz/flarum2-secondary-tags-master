@@ -37,6 +37,17 @@
     }
   }
 
+  function getSecondaryListedFromTag(tag) {
+    try {
+      var attrs = tag && tag.data && tag.data.attributes ? tag.data.attributes : null;
+      var v = attrs ? attrs.secondaryListed : undefined;
+      // default = true
+      return v === undefined || v === null ? true : !!v;
+    } catch (_e) {
+      return true;
+    }
+  }
+
   function isGlobalSecondaryTag(tag) {
     // "Global secondary" in Flarum tags = not primary AND not a child (no parent_id).
     try {
@@ -58,28 +69,29 @@
       if (!this.secondaryPrimaryTagIds) {
         this.secondaryPrimaryTagIds = Stream(getSecondaryPrimaryIdsFromTag(this.tag));
       }
+      if (!this.secondaryListed) {
+        this.secondaryListed = Stream(getSecondaryListedFromTag(this.tag));
+      }
     });
 
     ext.extend(EditTagModal.prototype, 'fields', function (items) {
-      // For secondary tags: show a clearer "Show in All Discussions" checkbox.
-      if (this.tag && typeof this.tag.isPrimary === 'function' && !this.tag.isPrimary()) {
-        items.remove('hidden');
+      // For secondary tags: public/unlisted toggle (affects /tags, sidebar, and linkability).
+      if (this.tag && typeof this.tag.isPrimary === 'function' && !this.tag.isPrimary() && this.secondaryListed) {
         items.add(
-          'showInAllDiscussions',
+          'secondaryListed',
           m('div', { className: 'Form-group' }, [
             m('label', { className: 'checkbox' }, [
               m('input', {
                 type: 'checkbox',
-                checked: !this.isHidden(),
+                checked: !!this.secondaryListed(),
                 onchange: function (e) {
                   var checked = !!(e && e.target && e.target.checked);
-                  // core isHidden = inverse of "show"
-                  this.isHidden(!checked);
+                  this.secondaryListed(checked);
                 }.bind(this),
               }),
-              app.translator.trans('vadkuz-flarum2-secondary-tags-master.admin.edit_tag.show_in_all_discussions_label'),
+              app.translator.trans('vadkuz-flarum2-secondary-tags-master.admin.edit_tag.secondary_listed_label'),
             ]),
-            m('div', { className: 'helpText' }, app.translator.trans('vadkuz-flarum2-secondary-tags-master.admin.edit_tag.show_in_all_discussions_help')),
+            m('div', { className: 'helpText' }, app.translator.trans('vadkuz-flarum2-secondary-tags-master.admin.edit_tag.secondary_listed_help')),
           ]),
           10
         );
@@ -149,6 +161,11 @@
 
     ext.override(EditTagModal.prototype, 'submitData', function (original) {
       var data = original();
+
+      // Only send this attribute for secondary tags.
+      if (this.tag && typeof this.tag.isPrimary === 'function' && !this.tag.isPrimary() && this.secondaryListed) {
+        data.secondaryListed = !!this.secondaryListed();
+      }
 
       // Only send this attribute for global secondary tags.
       if (isGlobalSecondaryTag(this.tag) && this.secondaryPrimaryTagIds) {
