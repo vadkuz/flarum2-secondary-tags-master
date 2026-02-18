@@ -1,0 +1,10 @@
+/* Hide selection checkmarks in TagSelectionModal and always show tag icons.
+   This avoids Font Awesome Kit CSS making checkmarks visible for all tags. */
+.SelectTagListItem-checkIcon {
+  display: none !important;
+}
+
+.SelectTagList > li.selected .SelectTagListItem-tagIcon::before {
+  visibility: visible !important;
+}
+

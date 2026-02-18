@@ -12,6 +12,7 @@ return [
         ->js(__DIR__.'/js/dist/admin.js'),
 
     (new Extend\Frontend('forum'))
+        ->css(__DIR__.'/less/forum.css')
         ->js(__DIR__.'/js/dist/forum.js'),
 
     (new Extend\ApiResource(TagResource::class))
