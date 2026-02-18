@@ -1,0 +1,8 @@
+vadkuz-flarum2-secondary-tags-master:
+  admin:
+    edit_tag:
+      allowed_primary_label: Разрешенные Primary-теги
+      allowed_primary_help: "Если ничего не выбрано, этот Secondary-тег сквозной (можно использовать с любым Primary-тегом)."
+      show_in_all_discussions_label: Показывать в «Все обсуждения»
+      show_in_all_discussions_help: "Если отключить, обсуждения с этим тегом будут скрыты из «Все обсуждения»."
+
