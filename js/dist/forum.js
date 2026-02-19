@@ -261,6 +261,8 @@
           // Ensure we don't mutate caller's attrs.
           var copy = {};
           for (var k in attrs) copy[k] = attrs[k];
+          var baseClass = copy.className ? String(copy.className) : '';
+          copy.className = (baseClass + ' SecondaryTagsMaster-unlisted').trim();
           copy.link = false;
           return original(tag, copy);
         }
@@ -287,8 +289,10 @@
       '.TagLabel[href=\"#\"]:hover,.TagLinkButton[href=\"#\"]:hover{text-decoration:none;}' +
       // Hide from sidebar lists.
       '.IndexPage-nav .TagLinkButton[href=\"#\"]{display:none !important;}' +
-      // Hide from /tags page lists.
-      '.TagsPage .TagLabel[href=\"#\"]{display:none !important;}' +
+      '.IndexPage-nav .TagLinkButton.SecondaryTagsMaster-unlisted{display:none !important;}' +
+      // Hide from /tags and FoF Categories tag clouds (rendered as <a> or <span>).
+      '.TagsPage .TagLabel[href=\"#\"],.TagsPage .TagCloud .TagLabel:not([href]),.TagsPage .TagCloud .TagLabel.SecondaryTagsMaster-unlisted{display:none !important;}' +
+      '.CategoriesPage .TagCloud .TagLabel:not([href]),.CategoriesPage .TagCloud .TagLabel.SecondaryTagsMaster-unlisted{display:none !important;}' +
       '';
 
     var style = document.createElement('style');
@@ -426,4 +430,3 @@
 })();
 
 module.exports = { extend: [] };
-
